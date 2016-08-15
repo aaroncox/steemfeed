@@ -1,3 +1,28 @@
+# jesta's fork of [clayop/steemfeed](https://github.com/clayop/steemfeed)
+
+This is a modified version of clayop's steemfeed used to `publish_feed` for accounts witnessing on the steem blockchain.
+
+## Major Changes:
+
+- No longer uses a local cli_wallet / httprpc connection, now uses [xeroc/piston](https://github.com/xeroc/piston) to create, sign and broadcast the `publish_feed` transaction.
+- Dockerized the entire application. If you don't want to use docker, you could still export the variables from the `.example.env` file and run `python3 steemfeed.py` to start the application.
+
+## Docker Configuration
+
+1. Have Docker installed. Running `docker info` should return the information about your instance. If you need help installing, [see docker's installation guide](https://docs.docker.com/engine/installation/).
+2. `cp .example.env .env`, then edit it to add your account name, active WIF key, and your preferred node.
+3. `docker-compose up` to bring the node online. Ctrl+C to kill the process.
+
+**To run in the background**, run `docker-compose up -d`. If you are running in the background, you can also tail the logs with `docker logs -f steemfeed_app_1`.
+
+**If you modify steemfeed.py**, you will need to rebuild and rerun using the following command:
+
+`docker-compose build && docker-compose up`
+
+This will rebuild the container and then start it again.
+
+# Original readme.md (from [clayop/steemfeed](https://github.com/clayop/steemfeed))
+
 ### Supported Exchanges
 * Bittrex
 * Openledger (BTS-STEEM, Open.BTC-STEEM)

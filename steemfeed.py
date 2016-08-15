@@ -5,24 +5,70 @@ import requests
 import random
 import json
 import websocket
+import sys
 from websocket import create_connection
-from steemapi import SteemWalletRPC
+
+from pprint import pprint
+
+from graphenebase.types import *
+from graphenebase.objects import GrapheneObject, isArgsThisClass
+from steembase.operations import Amount
+from piston.steem import Steem
+import os
 
 # Config
 
-interval_init  = 60*60*2             # Feed publishing interval in seconds
-rand_level     = 0.10                # Degree of randomness of interval
-freq           = 60                  # Frequency of parsing trade histories
-min_change     = 0.03                # Minimum price change to publish feed
-max_age        = 60*60*24            # Maximum age of price feed
-manual_conf    = 0.30                # Maximum price change without manual confirmation
-use_telegram   = 0                   # If 1, you can confirm manual price feed through Telegram
-telegram_token = "telegram_token"    # Create your Telegram bot at @BotFather (https://t$
-telegram_id    = 0                   # Get your telegram id at @MyTelegramID_bot (https://telegram.me/mytelegramid_bot)
+interval_init  = 60*60*float(os.environ['feed_interval_init'])
+rand_level     = float(os.environ['feed_rand_level'])
+freq           = int(os.environ['feed_freq'])
+min_change     = float(os.environ['feed_min_change'])
+max_age        = 60*60*int(os.environ['feed_max_age'])
+manual_conf    = float(os.environ['feed_manual_conf'])
+use_telegram   = os.environ['feed_use_telegram']
+telegram_token = os.environ['feed_telegram_token']
+telegram_id    = os.environ['feed_telegram_id']
 bts_ws         = ["wss://dele-puppy.com/ws", "wss://bitshares.openledger.info/ws", "wss://valen-tin.fr:8090/ws"]
-rpc_host       = "localhost"
-rpc_port       = 8092
-witness        = "yourwitness"       # Your witness name
+
+# Piston/Account Configuration
+steemnode      = os.environ['feed_node'] # The steemnode to connect to
+witness        = os.environ['feed_account']   # Your witness name
+wif            = os.environ['feed_wif']       # Your active WIF key
+
+# New Classes, should be migrated to xeroc's library
+class Exchange_rate(GrapheneObject):
+    def __init__(self, *args, **kwargs) :
+        if isArgsThisClass(self, args):
+                self.data = args[0].data
+        else:
+            if len(args) == 1 and len(kwargs) == 0:
+                kwargs = args[0]
+
+            super().__init__(OrderedDict([
+                ('base', Amount(kwargs["base"])),
+                ('quote', Amount(kwargs["quote"])),
+            ]))
+
+class Feed_publish(GrapheneObject) :
+    def __init__(self, *args, **kwargs) :
+        if isArgsThisClass(self, args):
+                self.data = args[0].data
+        else:
+            if len(args) == 1 and len(kwargs) == 0:
+                kwargs = args[0]
+            super().__init__(OrderedDict([
+                ('publisher', String(kwargs["publisher"])),
+                ('exchange_rate', Exchange_rate(kwargs["exchange_rate"])),
+            ]))
+
+def publish_feed(account, amount):
+    op = Feed_publish(
+        **{ "publisher": account,
+            "exchange_rate": {
+              "base": amount + " SBD",
+              "quote": "1.000 STEEM"
+            }}
+    )
+    steem.executeOp(op, wif)
 
 def rand_interval(intv):
     intv += intv*rand_level*random.uniform(-1, 1)
@@ -147,13 +193,16 @@ def bts_dex_hist(address):
 
 if __name__ == '__main__':
     print("Connecting to Steem RPC")
-    rpc = SteemWalletRPC(rpc_host, rpc_port, "", "")
+
+    steem = Steem(wif=wif)
+    info = steem.info()
     try:
-        bh = rpc.info()["head_block_num"]
+        bh = steem.info()["head_block_number"]
         print("Connected. Current block height is " + str(bh))
     except:
         print("Connection error. Check your cli_wallet")
         quit()
+
     if use_telegram == 1:
         try:
             print("Connecting to Telegram")
@@ -170,10 +219,10 @@ if __name__ == '__main__':
     except:
         last_update_id = 0
     interval = rand_interval(interval_init)
-    time_adj = time.time() - datetime.datetime.utcnow().timestamp()
+    time_adj = time.time() - datetime.utcnow().timestamp()
     start_t = (time.time()//freq)*freq - freq
     last_t = start_t - 1
-    my_info = rpc.get_witness(witness)
+    my_info = steem.rpc.get_witness_by_account(witness)
     if float(my_info["sbd_exchange_rate"]["quote"].split()[0]) == 0:
         last_price = 0
     else:
@@ -243,11 +292,11 @@ if __name__ == '__main__':
                 else:
                     if abs(1 - price/last_price) > manual_conf:
                         if confirm(manual_conf, price_str, last_update_id) is True:
-                            rpc.publish_feed(witness, {"base": price_str +" SBD", "quote":"1.000 STEEM"}, True)
+                            publish_feed(witness, price_str)
                             print("Published price feed: " + price_str + " USD/STEEM at " + time.ctime()+"\n")
                             last_price = price
                     else:
-                        rpc.publish_feed(witness, {"base": price_str +" SBD", "quote":"1.000 STEEM"}, True)
+                        publish_feed(witness, price_str)
                         print("Published price feed: " + price_str + " USD/STEEM at " + time.ctime()+"\n")
                         last_price = price
                     steem_q = 0
@@ -258,5 +307,6 @@ if __name__ == '__main__':
             interval = rand_interval(interval_init)
             start_t = curr_t
         left_min = (interval - (curr_t - start_t))/60
-        print(str(int(left_min)) + " minutes to next update / Volume: " + format(btc_q, ".4f") + " BTC  " + str(int(steem_q)) + " STEEM\r", end="")
+        print(str(int(left_min)) + " minutes to next update / Volume: " + format(btc_q, ".4f") + " BTC  " + str(int(steem_q)) + " STEEM\r")
+        sys.stdout.flush()
         time.sleep(freq*0.7)
