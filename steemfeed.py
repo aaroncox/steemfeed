@@ -291,6 +291,9 @@ if __name__ == '__main__':
                     publish_feed(witness, price_str)
                     print("Published price feed: " + price_str + " USD/STEEM at " + time.ctime()+"\n")
                     last_price = price
+                    steem_q = 0
+                    btc_q = 0
+                    last_update_t = curr_t
                 # otherwise perform normally
                 else:
                     if (abs(1 - price/last_price) < min_change) and ((curr_t - last_update_t) < max_age):
