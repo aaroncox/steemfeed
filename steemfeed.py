@@ -286,22 +286,29 @@ if __name__ == '__main__':
             if steem_q > 0:
                 price = btc_q/steem_q*btc_usd()
                 price_str = format(price, ".3f")
-                if (abs(1 - price/last_price) < min_change) and ((curr_t - last_update_t) < max_age):
-                    print("No significant price change and last feed is still valid")
-                    print("Last price: " + format(last_price, ".3f") + "  Current price: " + price_str + "  " + format((price/last_price*100 - 100), ".1f") + "%  / Feed age: " + str(int((curr_t - last_update_t)/3600)) + " hours")
+                # If this is our first price submission, just execute
+                if last_price == 0:
+                    publish_feed(witness, price_str)
+                    print("Published price feed: " + price_str + " USD/STEEM at " + time.ctime()+"\n")
+                    last_price = price
+                # otherwise perform normally
                 else:
-                    if abs(1 - price/last_price) > manual_conf:
-                        if confirm(manual_conf, price_str, last_update_id) is True:
+                    if (abs(1 - price/last_price) < min_change) and ((curr_t - last_update_t) < max_age):
+                        print("No significant price change and last feed is still valid")
+                        print("Last price: " + format(last_price, ".3f") + "  Current price: " + price_str + "  " + format((price/last_price*100 - 100), ".1f") + "%  / Feed age: " + str(int((curr_t - last_update_t)/3600)) + " hours")
+                    else:
+                        if abs(1 - price/last_price) > manual_conf:
+                            if confirm(manual_conf, price_str, last_update_id) is True:
+                                publish_feed(witness, price_str)
+                                print("Published price feed: " + price_str + " USD/STEEM at " + time.ctime()+"\n")
+                                last_price = price
+                        else:
                             publish_feed(witness, price_str)
                             print("Published price feed: " + price_str + " USD/STEEM at " + time.ctime()+"\n")
                             last_price = price
-                    else:
-                        publish_feed(witness, price_str)
-                        print("Published price feed: " + price_str + " USD/STEEM at " + time.ctime()+"\n")
-                        last_price = price
-                    steem_q = 0
-                    btc_q = 0
-                    last_update_t = curr_t
+                        steem_q = 0
+                        btc_q = 0
+                        last_update_t = curr_t
             else:
                 print("No trades occured during this period")
             interval = rand_interval(interval_init)
