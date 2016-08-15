@@ -194,7 +194,7 @@ def bts_dex_hist(address):
 if __name__ == '__main__':
     print("Connecting to Steem RPC")
 
-    steem = Steem(wif=wif)
+    steem = Steem(node=steemnode, wif=wif)
     info = steem.info()
     try:
         bh = steem.info()["head_block_number"]
