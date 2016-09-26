@@ -24,6 +24,7 @@ freq           = int(os.environ['feed_freq'])
 min_change     = float(os.environ['feed_min_change'])
 max_age        = 60*60*int(os.environ['feed_max_age'])
 manual_conf    = float(os.environ['feed_manual_conf'])
+discount       = float(os.environ['feed_discount'])
 use_telegram   = os.environ['feed_use_telegram']
 telegram_token = os.environ['feed_telegram_token']
 telegram_id    = os.environ['feed_telegram_id']
@@ -285,11 +286,11 @@ if __name__ == '__main__':
         if curr_t - start_t >= interval:
             if steem_q > 0:
                 price = btc_q/steem_q*btc_usd()
-                price_str = format(price, ".3f")
+                price_str = format(price*(1-discount), ".3f")
                 # If this is our first price submission, just execute
                 if last_price == 0:
                     publish_feed(witness, price_str)
-                    print("Published price feed: " + price_str + " USD/STEEM at " + time.ctime()+"\n")
+                    print("Published price feed: " + price_str + " (-" + str(discount * 100) + "\%) USD/STEEM at " + time.ctime()+"\n")
                     last_price = price
                     steem_q = 0
                     btc_q = 0
